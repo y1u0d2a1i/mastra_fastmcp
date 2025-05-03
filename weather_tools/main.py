@@ -1,4 +1,3 @@
-import asyncio
 import httpx
 from pydantic import BaseModel, Field
 from typing import List, Optional
@@ -127,13 +126,6 @@ async def get_weather(location: str) -> WeatherOutput:
             location=found_location_name,
         )
         return output
-
-client = Client(mcp)
-
-async def call_tool(location: str):
-    async with client:
-        result = await client.call_tool("get_weather", {"location": location})
-        print(result)
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")
