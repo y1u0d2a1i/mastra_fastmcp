@@ -1,7 +1,21 @@
 import { openai } from '@ai-sdk/openai';
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
-import { weatherTool } from '../tools';
+import { MCPClient } from '@mastra/mcp';
+
+const mcp = new MCPClient({
+  servers: {
+    weather: {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "path_to_your_mcp_server_directory",
+        "run",
+        "main.py"
+      ]
+    },
+  },
+});
 
 export const weatherAgent = new Agent({
   name: 'Weather Agent',
@@ -18,7 +32,6 @@ export const weatherAgent = new Agent({
       Use the weatherTool to fetch current weather data.
 `,
   model: openai('gpt-4.1-nano'),
-  tools: { weatherTool },
   memory: new Memory({
     options: {
       lastMessages: 10,
@@ -28,4 +41,5 @@ export const weatherAgent = new Agent({
       },
     },
   }),
+  tools: await mcp.getTools(),
 });
