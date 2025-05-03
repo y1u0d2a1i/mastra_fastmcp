@@ -136,4 +136,4 @@ async def call_tool(location: str):
         print(result)
 
 if __name__ == "__main__":
-    asyncio.run(call_tool("tokyo"))
+    mcp.run(transport="stdio")
