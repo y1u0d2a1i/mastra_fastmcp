@@ -422,10 +422,14 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },
+    { name = "pydantic" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "fastmcp", specifier = ">=2.2.6" }]
+requires-dist = [
+    { name = "fastmcp", specifier = ">=2.2.6" },
+    { name = "pydantic", specifier = ">=2.11.4" },
+]
 
 [[package]]
 name = "websockets"
