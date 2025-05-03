@@ -1,0 +1,16 @@
+[project]
+name = "weather-tools"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "y1u0d2a1i", email = "y.kotani@raksul.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "fastmcp>=2.2.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
