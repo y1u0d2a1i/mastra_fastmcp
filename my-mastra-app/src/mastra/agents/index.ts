@@ -9,7 +9,7 @@ const mcp = new MCPClient({
       "command": "uv",
       "args": [
         "--directory",
-        "path_to_your_mcp_server_directory",
+        "absolute_path_to_your_mcp_server",
         "run",
         "main.py"
       ]

@@ -96,7 +96,11 @@ export const weatherAgent = new Agent({
   ```bash
   npm run dev
   ```
-1. localhost:4111にアクセスして、Mastraの
+3. localhost:4111にアクセスして、MastraのダッシュボードにアクセスしてWeatherAgentを選択し、適当に話しかけてレスポンスが帰って来れば問題ないです。
+   ![alt text](image-2.png)
+
+この段階ではWeatherAgentはmastra/tools配下に実装されているweatherToolを用いて天気情報を取得しています。
+次はこれをFastMCPでMCPサーバー化します。
 
 ## 3.1 FastMCPでの実装
 まずはpythonプロジェクトを作成し、FastMCPをインストールします。
@@ -105,12 +109,15 @@ uv init --lib weather_tools
 uv add fastmcp
 ```
 
+FastMCPとはのセクションで記載した通り、FastMCPは関数にデコレータを付けるだけでMCPサーバーを実装できます。
+MastraのweatherToolの実装をpythonに移植していきます。今回は実装の詳細というよりかは、MCPサーバー化することにフォーカスしているので、Gemini 2.5Proで全て移植しました。
+コードの詳細はGithubに載せているので、そちらを参照してください。
 
 ```python
 import httpx
 from pydantic import BaseModel, Field
 from typing import List, Optional
-from fastmcp import FastMCP, Client
+from fastmcp import FastMCP
 
 mcp = FastMCP("MCP Servers to get weather data")
 
@@ -171,4 +178,105 @@ async def get_weather(location: str) -> WeatherOutput:
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")
+```
+
+## 3.2 MastraからFastMCPのMCPサーバーにアクセス
+次にMastraからFastMCPのMCPサーバーにアクセスするためにAgentのコードを修正します。
+まず、修正後のAgentの実装全体を示してから、修正点を説明します。
+
+```typescript
+import { openai } from '@ai-sdk/openai';
+import { Agent } from '@mastra/core/agent';
+import { Memory } from '@mastra/memory';
+import { MCPClient } from '@mastra/mcp';
+
+const mcp = new MCPClient({
+  servers: {
+    weather: {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "absolute_path_to_your_mcp_server",
+        "run",
+        "main.py"
+      ]
+    },
+  },
+});
+
+export const weatherAgent = new Agent({
+  name: 'Weather Agent',
+  instructions: `
+      You are a helpful weather assistant that provides accurate weather information.
+
+      Your primary function is to help users get weather details for specific locations. When responding:
+      - Always ask for a location if none is provided
+      - If the location name isn’t in English, please translate it
+      - If giving a location with multiple parts (e.g. "New York, NY"), use the most relevant part (e.g. "New York")
+      - Include relevant details like humidity, wind conditions, and precipitation
+      - Keep responses concise but informative
+
+      Use the weatherTool to fetch current weather data.
+`,
+  model: openai('gpt-4.1-nano'),
+  memory: new Memory({
+    options: {
+      lastMessages: 10,
+      semanticRecall: false,
+      threads: {
+        generateTitle: false,
+      },
+    },
+  }),
+  tools: await mcp.getTools(),
+});
+```
+
+1つ目の修正点は、MCPClientを使ってMastraからMCPサーバーにアクセスするための設定を行います。
+```typescript
+const mcp = new MCPClient({
+  servers: {
+    weather: {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "absolute_path_to_your_mcp_server",
+        "run",
+        "main.py"
+      ]
+    },
+  },
+});
+```
+absolute_path_to_your_mcp_serverはFastMCPのMCPサーバーを実行しているディレクトリの絶対パスに置き換えてください。
+
+2つ目の修正点は、Agentの初期化時にweatherToolではなく、MCPClientを用いて取得したツールを指定します。
+以下のようにするだけで簡単にMCPで利用できるツールを取得できます。
+```typescript
+  tools: await mcp.getTools(),
+```
+
+あとは再度Mastraサーバーを起動して、ダッシュボードからWeatherAgentを選択し、東京の天気を聞いてみます。
+
+MCPサーバーに実装したget_weather関数が呼び出され、正しく回答されていることがわかります。
+
+
+toolに対するリクエスト
+```json
+{
+  "location": "Tokyo"
+}
+```
+
+ツール(MCPサーバー)からのレスポンス
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"temperature\": 17.0, \"feelsLike\": 17.2, \"humidity\": 76, \"windSpeed\": 5.0, \"windGust\": 33.8, \"conditions\": \"Clear sky\", \"location\": \"Tokyo\"}"
+    }
+  ],
+  "isError": false
+}
 ```
